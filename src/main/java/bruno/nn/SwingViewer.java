@@ -37,11 +37,16 @@ import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableModel;
 
-import bruno.nn.Helper.InAndOut;
-import bruno.nn.Helper.TrainConfig;
+import bruno.nn.DataHelper.Stats;
 import bruno.nn.SwingViewer.ArrayPanel.ModelConfig;
-import bruno.nn.SwingViewer.ArrayPanel.Stats;
+import bruno.nn.TrainingHelper.InAndOut;
+import bruno.nn.TrainingHelper.TrainConfig;
 
+/**
+ * UI that displays all activations/weights/biases and derivatives of NeuralNetwork - probably not usable except for smallest networks
+ * 
+ * Load/Saving is not possible in the UI, i.e. samples and the network must be loaded/trained before invoking this class.  
+ */
 public class SwingViewer {
     NeuralNet nn;
 
@@ -56,7 +61,6 @@ public class SwingViewer {
             implements TableCellRenderer {
         Border unselectedBorder = null;
         Border selectedBorder = null;
-        boolean isBordered = true;
         String prefix;
 
         Font font;
@@ -64,7 +68,6 @@ public class SwingViewer {
         Supplier<ModelConfig> getModelConfig;
 
         public ColorRenderer(boolean isBordered, String prefix, Supplier<ModelConfig> getModelConfig) {
-            this.isBordered = isBordered;
             this.prefix = prefix;
             this.getModelConfig = getModelConfig;
 
@@ -88,21 +91,20 @@ public class SwingViewer {
 
                 setForeground(v > -0.4 ? Color.BLACK : Color.WHITE);
                 setBackground(newColor);
-                if (isBordered) {
-                    if (isSelected) {
-                        if (selectedBorder == null) {
-                            selectedBorder = BorderFactory.createMatteBorder(1, 1, 1, 1,
-                                    table.getSelectionBackground());
-                        }
-                        setBorder(selectedBorder);
-                    } else {
-                        if (unselectedBorder == null) {
-                            unselectedBorder = BorderFactory.createMatteBorder(1, 1, 1, 1,
-                                    table.getBackground());
-                        }
-                        setBorder(unselectedBorder);
+                if (isSelected) {
+                    if (selectedBorder == null) {
+                        selectedBorder = BorderFactory.createMatteBorder(1, 1, 1, 1,
+                                table.getSelectionBackground());
                     }
+                    setBorder(selectedBorder);
+                } else {
+                    if (unselectedBorder == null) {
+                        unselectedBorder = BorderFactory.createMatteBorder(1, 1, 1, 1,
+                                table.getBackground());
+                    }
+                    setBorder(unselectedBorder);
                 }
+
                 setText(String.format(NeuralNet.s(v)));
                 setToolTipText(prefix + "[" + i + "]" + "=" + String.format("%5.10f", v));
 
@@ -117,6 +119,9 @@ public class SwingViewer {
         }
     }
 
+    /**
+     * Displays a single array of doubles
+     */
     static class ArrayPanel extends JPanel {
 
         int selectedIdx = -1;
@@ -129,9 +134,7 @@ public class SwingViewer {
         Consumer<Integer> onHover;
         Consumer<Integer> onSelected;
 
-        //        public int realIdx2pixx(int i) {
-        //            return (i - startIdx) % cols + startx;
-        //        }
+
 
         JTextArea stats;
         JTable table;
@@ -140,9 +143,21 @@ public class SwingViewer {
         ModelConfig modelConfig;
 
         static class ModelConfig {
+            /**
+             * array of data to be displayed
+             */
             double vs[];
+            /**
+             * columns for formatting 
+             */
             int cols;
+            /**
+             * 1st index that should be visible (data under this idx should be hidden)
+             */
             int startIdx;
+            /**
+             * 1st index that should not be visible anymore (data above and incl. this idx should be hidden too)
+             */
             int endIdx;
 
             public ModelConfig(double[] vs, int cols, int startIdx, int endIdx) {
@@ -153,7 +168,13 @@ public class SwingViewer {
                 this.endIdx = endIdx;
             }
 
+            /**
+             * number of visible cells
+             */
             int maxLenght;
+            /**
+             * maximum row
+             */
             int maxy;
 
         }
@@ -195,24 +216,6 @@ public class SwingViewer {
 
         }
 
-        //        public int idx2pixy(int i) {
-        //            return (i - startIdx) / cols + starty;
-        //        }
-
-        //        public int pix2realIdx(int pixx, int pixy) {
-        //
-        //            int x = (pixx - startx) / size;
-        //            int y = (pixy - starty) / size;
-        //
-        //            if (x >= 0 && x < cols)
-        //                if (y >= 0 && y <= maxLenght / cols) {
-        //                    int idx = y * cols + x + startIdx;
-        //                    if (idx < maxLenght)
-        //                        return idx;
-        //                }
-        //            return -1;
-        //
-        //        }
 
         public void setOnHover(Consumer<Integer> onHover) {
             this.onHover = onHover;
@@ -298,37 +301,7 @@ public class SwingViewer {
             setNewModel(new ModelConfig(vs, cols, 0, -1));
 
             setBorder(BorderFactory.createTitledBorder(title));
-            //            this.addMouseMotionListener(new MouseMotionAdapter() {
-            //
-            //                public void mouseMoved(MouseEvent e) {
-            //
-            //                    int idx = pix2realIdx(e.getX(), e.getY());
-            //
-            //                    if (onHover != null)
-            //                        onHover.accept(idx);
-            //
-            //                    hoverIdx = idx;
-            //                    // System.err.println("hoverI:" + hoverIdx);
-            //                    repaint();
-            //
-            //                }
-            //
-            //            });
 
-            //            this.addMouseListener(new MouseAdapter() {
-            //
-            //                @Override
-            //                public void mouseClicked(MouseEvent e) {
-            //                    if (onSelected != null) {
-            //                        int idx = pix2realIdx(e.getX(), e.getY());
-            //                        if (idx != -1) {
-            //                            setSelected(idx);
-            //                            onSelected.accept(idx);
-            //                        }
-            //                    }
-            //
-            //                }
-            //            });
         }
 
         public void setSelected(int i) {
@@ -338,111 +311,6 @@ public class SwingViewer {
             repaint();
         }
 
-        static class Stats {
-            double max;
-            double min;
-            double acc;
-            double avg;
-            double aavg;
-            double aacc;
-            int n;
-
-            void init(double v0) {
-                aacc = 0;
-                max = v0;
-                min = v0;
-            }
-
-            Stats(double[] vs) {
-                init(vs[0]);
-
-                process(vs);
-
-                done();
-            }
-
-            Stats(double[][] vss) {
-                init(vss[0][0]);
-
-                for (int i = 0; i < vss.length; i++) {
-                    double[] vs = vss[i];
-                    process(vs);
-                }
-                done();
-            }
-
-            private void process(double[] vs) {
-                for (int i = 0; i < vs.length; i++) {
-                    double v = vs[i];
-                    process(v);
-                }
-            }
-
-            private void done() {
-                avg = acc / n;
-                aavg = aacc / n;
-            }
-
-            private void process(double v) {
-                if (v < min)
-                    min = v;
-                if (v > max)
-                    max = v;
-                acc += v;
-                aacc += Math.abs(v);
-                n++;
-            }
-
-            @Override
-            public String toString() {
-                String retVal = "";
-                retVal += "\nmax=" + NeuralNet.s(max);
-                retVal += "\nmin=" + NeuralNet.s(min);
-
-                retVal += "\navg=" + NeuralNet.s(avg);
-                retVal += "\naavg=" + NeuralNet.s(aavg);
-                retVal += "\nn=" + n;
-
-                return retVal;
-            }
-        }
-
-        //        public void paintComponent(Graphics g) {
-        //            try {
-        //                super.paintComponent(g);
-        //                // Draws the image to the canvas
-        //                System.err.println("paintComponent() selectedI:" + selectedIdx);
-        //
-        //                g.clearRect(0, 0, getWidth(), getHeight());
-        //
-        //                for (int i = 0; i < maxLenght; i++) {
-        //                    int x = i % cols;
-        //                    int y = i / cols;
-        //                    int idx = i + startIdx;
-        //                    if (idx == hoverIdx) {
-        //                        g.setColor(Color.YELLOW);
-        //                        g.fillRect(startx + x * size - 2, starty + y * size - 2, size + 2, size + 2);
-        //                    }
-        //                    if (idx == selectedIdx) {
-        //                        g.setColor(Color.BLUE);
-        //                        g.fillRect(startx + x * size - 2, starty + y * size - 2, size + 2, size + 2);
-        //                    }
-        //
-        //                }
-        //
-        //                for (int i = 0; i < maxLenght; i++) {
-        //
-        //                    int x = i % cols;
-        //                    int y = i / cols;
-        //                    int idx = i + startIdx;
-        //                    double v = vs[idx];
-        //                    g.setColor(v2color(v));
-        //                    g.fillRect(startx + x * size, starty + y * size, size - 2, size - 2);
-        //                }
-        //            } catch (Exception e) {
-        //                throw new RuntimeException(e);
-        //            }
-        //        }
 
         public static Color v2color(double v) {
             // v = Math.sqrt(v * 10);
@@ -471,6 +339,9 @@ public class SwingViewer {
 
     }
 
+    /**
+     * Displays several array of doubles, from left to right, top aligned
+     */
     static class ArrayPanels extends JPanel {
         List<ArrayPanel> arrayPanels = new ArrayList<>();
 
@@ -489,6 +360,13 @@ public class SwingViewer {
         }
     }
 
+    /**
+     * A layer panel consists in 2 parts:
+     * the top part shows the fwd arrays (weights+bias+z+activations)
+     * the botton part the bwd arrays (derivatives)
+     * 
+     * clicking on one of the right arrays (z/activation/dls) will update the display so that weights are shown for the clicked neuron
+     */
     static class LayerPanel extends JPanel {
         NeuralNet nn;
 
@@ -562,8 +440,10 @@ public class SwingViewer {
         ArrayPanels bwd;
 
         public JComponent addForward() {
+            JPanel panel = new JPanel(new BorderLayout());
+            panel.setBorder(BorderFactory.createTitledBorder("fwd"));
+            panel.add(new JLabel("Hint: click on x cell in a/zs[" + (l) + "] to display accordingly w/b [" + (l - 1) + "][x]"), BorderLayout.NORTH);
             fwd = new ArrayPanels();
-            fwd.setBorder(BorderFactory.createTitledBorder("fwd"));
             prev = new ArrayPanel("a[" + (l - 1) + "]", nn.ls[l - 1], dims.get(l - 1));
             //            prev.setOnHover(x -> {
             //                if (x != -1)
@@ -609,7 +489,9 @@ public class SwingViewer {
 
             fwd.addArrayPanel(current);
             JScrollPane scrollPane = new JScrollPane(fwd);
-            return scrollPane;
+            panel.add(scrollPane, BorderLayout.CENTER);
+
+            return panel;
         }
 
         private void selectNeuron(int i) {
@@ -662,6 +544,9 @@ public class SwingViewer {
 
     }
 
+    /**
+     * Used to show the error arrays
+     */
     static class CostPanel extends JPanel {
         private static final long serialVersionUID = 1L;
 
@@ -678,7 +563,6 @@ public class SwingViewer {
             this.nn = nn;
             costLabel = new JLabel();
             this.add(costLabel, BorderLayout.NORTH);
-
 
             JSplitPane jSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
             this.add(jSplitPane, BorderLayout.CENTER);
@@ -704,16 +588,16 @@ public class SwingViewer {
         }
 
         public void reset() {
-            NeuralNet.zeros(errorRef);
-            NeuralNet.zeros(errordRef);
+            DataHelper.zeros(errorRef);
+            DataHelper.zeros(errordRef);
         }
 
         public void computeError(double expected[]) {
-            Helper.layerErrorFunction(nn.ls[(nn.layers - 1)], expected, errorRef);
+            TrainingHelper.layerErrorFunction(nn.ls[(nn.layers - 1)], expected, errorRef);
 
             costLabel.setText("$ " + NeuralNet.s(new Stats(errorRef).acc));
 
-            Helper.layerErrorFunctiond(nn.ls[(nn.layers - 1)], expected, errordRef);
+            TrainingHelper.layerErrorFunctiond(nn.ls[(nn.layers - 1)], expected, errordRef);
             invalidate();
             repaint();
         }
@@ -727,16 +611,10 @@ public class SwingViewer {
 
     }
 
-    public static List<Integer> getDims(int n, int... dims) {
-        List<Integer> retVal = new ArrayList<Integer>();
-        for (int i = 0; i < dims.length; i++)
-            retVal.add(dims[i]);
-        while (retVal.size() < n)
-            retVal.add(1);
 
-        return retVal;
-    }
-
+    /**
+     * Shows the network, i.e. one tab per layer
+     */
     static class NnPanel extends JPanel {
         private static final long serialVersionUID = 1L;
 
@@ -765,6 +643,9 @@ public class SwingViewer {
         }
     }
 
+    /**
+     * show a sample. The check box is used to automatically update the network when changing of sample
+     */
     static class InAndOutPanel extends JPanel {
         private static final long serialVersionUID = 1L;
         List<InAndOut> list;
@@ -807,6 +688,7 @@ public class SwingViewer {
             });
 
             autoEvaluate = new JCheckBox("auto fwd-bwd");
+            autoEvaluate.setSelected(true);
             chooseSamplePanel.add(autoEvaluate);
         }
 
@@ -819,6 +701,9 @@ public class SwingViewer {
         }
     }
 
+    /**
+     * Panels above + couple of buttons for actions
+     */
     static class MainPanel extends JPanel {
 
         private static final long serialVersionUID = 1L;
@@ -857,9 +742,9 @@ public class SwingViewer {
 
             JButton train1Btn = new JButton("U+A");
             toolBar.add(train1Btn);
-
-            JButton normBtn = new JButton("norm");
-            toolBar.add(normBtn);
+            //
+            //            JButton normBtn = new JButton("norm");
+            //            toolBar.add(normBtn);
 
             JButton batchBtn = new JButton("batch");
             toolBar.add(batchBtn);
@@ -911,10 +796,10 @@ public class SwingViewer {
                 nn.applyDws();
                 resetDw(nn, costPanel);
             });
-            normBtn.addActionListener(e -> {
-                nn.normalizeWs();
-                onModelChanged();
-            });
+            //            normBtn.addActionListener(e -> {
+            //                nn.normalizeWs();
+            //                onModelChanged();
+            //            });
 
             batchBtn.addActionListener(e -> {
                 TrainConfig trainConfig = new TrainConfig();
@@ -922,11 +807,11 @@ public class SwingViewer {
                 trainConfig.rateDecay = 1.0;
                 trainConfig.batches = 1;
                 //trainConfig.reduceTrainingRatio = 0.1;
-                Helper.train(data, data, nn, trainConfig);
+                TrainingHelper.train(data, data, nn, trainConfig);
                 onModelChanged();
-                double[] metrics=Helper.computeErrorAcc(data,nn);
+                double[] metrics = TrainingHelper.computeErrorAcc(data, nn);
                 statusBar.setText("after batch. avg $" + NeuralNet.s(metrics[0]) + " avg accuracy:" + NeuralNet.s(metrics[1]));
-                
+
             });
 
             updateApplyButtonTitle();
@@ -935,9 +820,9 @@ public class SwingViewer {
         private void backtrack(NeuralNet nn, List<InAndOut> data) {
             int i = inOutPanel.getSelected();
             InAndOut sample = data.get(i);
-            double[] output = nn.computeNetwork(sample.input);
-            nn.updateBacktrack(sample.input, sample.expected);
-            double[] pair = Helper.computeError(output, sample.expected);
+            double[] output = nn.computeFwd(sample.input);
+            nn.computeFwdBwd(sample.input, sample.expected);
+            double[] pair = TrainingHelper.computeError(output, sample.expected);
             statusBar.setText("sample #" + i + " cost:" + pair[0] + " accuracy" + pair[1]);
 
             costPanel.computeError(sample.expected);
@@ -966,6 +851,19 @@ public class SwingViewer {
             applyBtn.setEnabled(nn.dh > 0);
         }
 
+    }
+
+    /**
+     * return dims as a list, so that it has at least n elements (1 is used for padding)
+     */
+    public static List<Integer> getDims(int n, int... dims) {
+        List<Integer> retVal = new ArrayList<Integer>();
+        for (int i = 0; i < dims.length; i++)
+            retVal.add(dims[i]);
+        while (retVal.size() < n)
+            retVal.add(1);
+
+        return retVal;
     }
 
     public static void show(NeuralNet nn, List<InAndOut> list, int... dims) {

@@ -10,6 +10,10 @@ import java.util.List;
 
 import javax.imageio.ImageIO;
 
+/**
+ * Class to read the Mnist samples
+ * Warning: values differ slightly from the python equivalent
+ */
 public class ReadMnist {
     private String imagesFile;
     private String labelsFile;
